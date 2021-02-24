@@ -35,29 +35,118 @@
       <main id="app">
           <section class="todo container">
               <h1 class="text-center">Lista de la compra</h1>
-              <ul class="menu">
+              <ul v-if="productos.length > 0" class="menu">
                   <li v-for="producto in productos" class="menu-item">
                       <label class="form-checkbox">
-                          <input type="checkbox" :checked="producto.fields.Adquirido">
+                          <input @click="actualizarAdquiridoEnAPI(producto.id, !producto.fields.Adquirido)" type="checkbox" :checked="producto.fields.Adquirido">
                           <i class="form-icon"></i> {{ producto.fields.Nombre }}
+                          <button
+                                @click="borrarProducto(producto.id)"
+                                class="btn btn-error"
+                          >Borrar</button>
                       </label>
+                      <div class="form-group">
+                        <input
+                            @keypress.enter="actualizarProductoEnAPI(producto.id, productoActualizar)"
+                            v-model="productoActualizar"
+                            type="text"
+                            class="form-input"
+                        >
+                      </div>
                       <!-- menu divider -->
                       <span class="divider"></span>
                   </li>
               </ul>
+              <div v-else class="loading"></div>
           </section>
       </main>
       <script>
+       const URL_API = 'https://api.airtable.com/v0/appB8GqRC4jQwaXci/Productos?view=Grid%20view';
+       const URL_API_UPDATE = 'https://api.airtable.com/v0/appB8GqRC4jQwaXci/Productos';
+       const URL_API_BORRAR = 'https://api.airtable.com/v0/appB8GqRC4jQwaXci/Productos?records[]=';
+       const AUTHORIZATION = 'Bearer keySmgmJUxaWwmOXm';
+
        new Vue({
            el: '#app',
            data: {
-               productos: []
+               productos: [],
+               productoActualizar: ''
            },
            mounted: function () {
+               this.obtenerProductos();
            },
            methods: {
                obtenerProductos: function () {
+                   fetch(URL_API, {
+                       headers: {
+                           'Authorization': AUTHORIZATION
+                       }
+                   })
+                       .then((response) => response.json())
+                       .then((json) => this.productos = json.records)
 
+               },
+               borrarProducto: function (id) {
+                   // Borramos del API
+                   fetch(URL_API_BORRAR.concat(id), {
+                       headers: {
+                           'Authorization': AUTHORIZATION
+                       },
+                       method: 'DELETE'
+                   });
+                   // Borramos de Local
+                   this.productos = this.productos.filter(producto => {
+                       return producto.id !== id
+                   });
+               },
+               actualizarProductoEnAPI: function(id, nuevoTexto) {
+                   fetch(URL_API_UPDATE, {
+                       headers: {
+                           'Content-type': 'application/json',
+                           'Authorization': AUTHORIZATION
+                       },
+                       method: 'PATCH',
+                       body: JSON.stringify({
+                           "records": [
+                               {
+                                   "id": id,
+                                   "fields": {
+                                       "Nombre": nuevoTexto,
+                                   }
+                               }
+                           ]
+                       })
+                   })
+               },
+               actualizarAdquiridoEnAPI: function(id, checked) {
+                   // Actualizamos en API
+                   fetch(URL_API_UPDATE, {
+                       headers: {
+                           'Content-type': 'application/json',
+                           'Authorization': AUTHORIZATION
+                       },
+                       method: 'PATCH',
+                       body: JSON.stringify({
+                           "records": [
+                               {
+                                   "id": id,
+                                   "fields": {
+                                       "Adquirido": checked,
+                                   }
+                               }
+                           ]
+                       })
+                   })
+                   // Actualizamos en Local
+                   this.productos = this.productos.map((producto) => {
+                       if (producto.id === id) {
+                            let miProducto = producto;
+                            miProducto.fields.Adquirido = checked;
+                            return miProducto;
+                       } else {
+                           return producto;
+                       }
+                   });
                }
            }
        })
