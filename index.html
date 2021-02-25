@@ -35,17 +35,20 @@
       <main id="app">
           <section class="todo container">
               <h1 class="text-center">Lista de la compra</h1>
+              <section>
+                  <input class="form-group" @keypress.enter="anyadirProducto" v-model="nuevoProducto" type="text">
+              </section>
               <ul v-if="productos.length > 0" class="menu">
                   <li v-for="producto in productos" class="menu-item">
-                      <label class="form-checkbox">
+                      <label v-if="producto.id !== productoEditar" class="form-checkbox">
                           <input @click="actualizarAdquiridoEnAPI(producto.id, !producto.fields.Adquirido)" type="checkbox" :checked="producto.fields.Adquirido">
-                          <i class="form-icon"></i> {{ producto.fields.Nombre }}
+                          <i class="form-icon"></i><span @click="abrirEditar(producto.id, producto.fields.Nombre)"> {{ producto.fields.Nombre }}</span>
                           <button
                                 @click="borrarProducto(producto.id)"
                                 class="btn btn-error"
                           >Borrar</button>
                       </label>
-                      <div class="form-group">
+                      <div class="form-group" v-else>
                         <input
                             @keypress.enter="actualizarProductoEnAPI(producto.id, productoActualizar)"
                             v-model="productoActualizar"
@@ -62,6 +65,7 @@
       </main>
       <script>
        const URL_API = 'https://api.airtable.com/v0/appB8GqRC4jQwaXci/Productos?view=Grid%20view';
+       const URL_API_ADD = 'https://api.airtable.com/v0/appB8GqRC4jQwaXci/Productos';
        const URL_API_UPDATE = 'https://api.airtable.com/v0/appB8GqRC4jQwaXci/Productos';
        const URL_API_BORRAR = 'https://api.airtable.com/v0/appB8GqRC4jQwaXci/Productos?records[]=';
        const AUTHORIZATION = 'Bearer keySmgmJUxaWwmOXm';
@@ -70,12 +74,35 @@
            el: '#app',
            data: {
                productos: [],
-               productoActualizar: ''
+               productoActualizar: '',
+               nuevoProducto: '',
+               productoEditar: false
            },
            mounted: function () {
                this.obtenerProductos();
            },
            methods: {
+               anyadirProducto: function () {
+                   fetch(URL_API_ADD, {
+                       headers: {
+                           'Authorization': AUTHORIZATION,
+                           'Content-type': 'application/json'
+                       },
+                       method: 'POST',
+                       body: JSON.stringify({
+                           "records": [
+                               {
+                                   "fields": {
+                                       "Nombre": this.nuevoProducto,
+                                       "Adquirido": false
+                                   }
+                               }
+                           ]
+                       })
+                   })
+                       .then(() => this.nuevoProducto = '')
+                       .then(() => this.obtenerProductos())
+               },
                obtenerProductos: function () {
                    fetch(URL_API, {
                        headers: {
@@ -100,6 +127,9 @@
                    });
                },
                actualizarProductoEnAPI: function(id, nuevoTexto) {
+                   // Cerrar editor
+                   this.productoEditar = false;
+                   // Actualizar Producto
                    fetch(URL_API_UPDATE, {
                        headers: {
                            'Content-type': 'application/json',
@@ -117,6 +147,7 @@
                            ]
                        })
                    })
+                       .then(() => this.obtenerProductos())
                },
                actualizarAdquiridoEnAPI: function(id, checked) {
                    // Actualizamos en API
@@ -147,6 +178,10 @@
                            return producto;
                        }
                    });
+               },
+               abrirEditar: function (id, nombre) {
+                   this.productoEditar = id;
+                   this.productoActualizar = nombre;
                }
            }
        })
